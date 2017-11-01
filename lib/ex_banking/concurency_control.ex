@@ -18,6 +18,8 @@ defmodule ExBanking.ConcurencyControl do
     {:ok, table}
   end
 
+  @index 2
+
   @doc """
   Run operation, if there is not more than a limit of other operations on the same
   name.
@@ -25,15 +27,24 @@ defmodule ExBanking.ConcurencyControl do
   def run(name, fun, limit \\ 10) do
     :ets.insert_new(@table, {name, 0})
 
-    case :ets.update_counter(@table, name, [{2, 0}, {2, 1, limit, limit}]) do
+    # Adding zero, will return the actual number of running elements
+    get_counter = {@index, 0}
+    # Set treshhold to limit, so by trashhold we still should set back to our limit
+    increment = {@index, 1, limit, limit}
+
+    case :ets.update_counter(@table, name, [get_counter, increment]) do
       [counter, _] when counter < limit ->
         try do
           fun.()
         after
-          :ets.update_counter(@table, name, [{2, -1, 0, 0}])
+          # Set trashhold to zero, so that if applied it wouldn't be less zero.
+          # Should never happen anyway.
+          decrement = {@index, -1, 0, 0}
+          :ets.update_counter(@table, name, [decrement])
         end
 
-      [limit, limit] ->
+      # In a case, we reached our limit, we should return error
+      [^limit, ^limit] ->
         {:error, :limit}
     end
   end

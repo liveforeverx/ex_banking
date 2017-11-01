@@ -1,6 +1,8 @@
 defmodule ExBanking do
   @moduledoc """
   Public interface for testing.
+
+  TODO: Should be documented.
   """
 
   alias ExBanking.{Balance, User}
